@@ -144,7 +144,8 @@ RUN if [ -n "$GIT_USER_NAME" ]; then \
     fi && \
     if [ -n "$GIT_USER_EMAIL" ]; then \
         git config --global user.email "$GIT_USER_EMAIL"; \
-    fi
+    fi && \
+    gh auth setup-git --hostname github.com
 
 # ---------------------------------------------------------------------------
 # Runtime
