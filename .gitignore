@@ -50,3 +50,15 @@ Testing/
 __pycache__/
 *.pyc
 .venv/
+*.whl
+*.egg-info/
+pip-wheel-metadata/
+
+# IDE
+.idea/
+.vscode/
+*.swp
+*.swo
+
+# Python bindings built in source tree
+python/ibalgotrade/_core*.so
