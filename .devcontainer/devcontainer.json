@@ -1,0 +1,59 @@
+{
+    "name": "IB Algo Trade Dev",
+    "build": {
+        "dockerfile": "Dockerfile",
+        "context": ".",
+        "args": {
+            "NOMACHINE_VERSION": "9.5.7",
+            "NOMACHINE_REV": "2",
+            "CONTAINER_USER": "ibuser",
+            "CONTAINER_PASSWORD": "ibpass",
+            "CONTAINER_UID": "1000",
+            "CONTAINER_GID": "1000",
+            "GIT_USER_NAME": "xiahualiu",
+            "GIT_USER_EMAIL": "49677912+xiahualiu@users.noreply.github.com"
+        }
+    },
+    "workspaceFolder": "/workspace",
+    "customizations": {
+        "vscode": {
+            "extensions": [
+                "ms-vscode.cmake-tools",
+                "llvm-vs-code-extensions.vscode-clangd",
+                "ms-python.python",
+                "ms-python.debugpy",
+                "ms-python.black-formatter",
+                "ms-python.mypy-type-checker",
+                "ms-python.pylance",
+                "anthropic.claude-code"
+            ],
+            "settings": {
+                "clangd.path": "/usr/bin/clangd",
+                "clangd.onConfigChanged": "restart",
+                "cmake.generator": "Ninja",
+                "cmake.buildDirectory": "${workspaceFolder}/build",
+                "python.defaultInterpreterPath": "/usr/bin/python3",
+                "[cpp]": {
+                    "editor.defaultFormatter": "llvm-vs-code-extensions.vscode-clangd"
+                }
+            }
+        }
+    },
+    "remoteUser": "ibuser",
+    "mounts": [
+        "source=ib-home,target=/home/ibuser,type=volume",
+        "source=${localWorkspaceFolder},target=/workspace,type=bind"
+    ],
+    "runArgs": [
+        "--privileged",
+        "--shm-size=16gb",
+        "--publish",
+        "0.0.0.0:4000:4000",
+        "--gpus",
+        "all",
+        "--name",
+        "ib-algo-trade",
+        "--env-file",
+        "${localWorkspaceFolder}/.env"
+    ]
+}
