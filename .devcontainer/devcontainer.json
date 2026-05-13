@@ -14,7 +14,7 @@
             "GIT_USER_EMAIL": "49677912+xiahualiu@users.noreply.github.com"
         }
     },
-    "workspaceFolder": "/workspace",
+    "workspaceFolder": "/home/ibuser/workspace",
     "customizations": {
         "vscode": {
             "extensions": [
@@ -41,8 +41,7 @@
     },
     "remoteUser": "ibuser",
     "mounts": [
-        "source=ib-home,target=/home/ibuser,type=volume",
-        "source=${localWorkspaceFolder},target=/workspace,type=bind"
+        "source=/mnt/ib-home,target=/home/ibuser,type=bind"
     ],
     "runArgs": [
         "--privileged",

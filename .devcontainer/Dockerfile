@@ -1,8 +1,20 @@
 FROM ubuntu:24.04
 
+ARG NOMACHINE_VERSION=9.5.7
+ARG NOMACHINE_REV=2
+ARG CONTAINER_USER=ibuser
+ARG CONTAINER_PASSWORD=ibpass
+ARG CONTAINER_UID=1000
+ARG CONTAINER_GID=1000
+ARG GIT_USER_NAME
+ARG GIT_USER_EMAIL
+
 ENV DEBIAN_FRONTEND=noninteractive
 ENV NVIDIA_VISIBLE_DEVICES=all
 ENV NVIDIA_DRIVER_CAPABILITIES=all
+ENV LANG=en_US.UTF-8
+ENV LANGUAGE=en_US.UTF-8
+ENV LC_ALL=en_US.UTF-8
 
 # ---------------------------------------------------------------------------
 # Base desktop + system
@@ -21,12 +33,15 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     libglx0 \
     libopengl0 \
     libvulkan1 \
+    locales \
     pulseaudio \
     sudo \
     wget \
     xfce4 \
     xfce4-goodies \
-    && rm -rf /var/lib/apt/lists/*
+    && locale-gen en_US.UTF-8 && \
+    update-locale LANG=en_US.UTF-8 && \
+    rm -rf /var/lib/apt/lists/*
 
 # ---------------------------------------------------------------------------
 # GitHub CLI
@@ -40,8 +55,6 @@ RUN mkdir -p -m 755 /etc/apt/keyrings && \
 # ---------------------------------------------------------------------------
 # NoMachine remote desktop
 # ---------------------------------------------------------------------------
-ARG NOMACHINE_VERSION=9.5.7
-ARG NOMACHINE_REV=2
 RUN wget -q "https://download.nomachine.com/download/${NOMACHINE_VERSION%.*}/Linux/nomachine_${NOMACHINE_VERSION}_${NOMACHINE_REV}_amd64.deb" \
         -O /tmp/nomachine.deb && \
     dpkg -i /tmp/nomachine.deb 2>/dev/null; apt-get update && apt-get install -f -y --no-install-recommends && \
@@ -92,19 +105,26 @@ RUN update-alternatives --install /usr/bin/clang clang /usr/bin/clang-20 200 \
 # ---------------------------------------------------------------------------
 # User setup
 # ---------------------------------------------------------------------------
-ARG CONTAINER_USER=ibuser
-ARG CONTAINER_PASSWORD=ibpass
-ARG CONTAINER_UID=1000
-ARG CONTAINER_GID=1000
-
 RUN userdel -r ubuntu 2>/dev/null || true && \
     groupadd -g "$CONTAINER_GID" "$CONTAINER_USER" 2>/dev/null || true && \
     useradd -m -s /bin/bash -u "$CONTAINER_UID" -g "$CONTAINER_GID" "$CONTAINER_USER" && \
     echo "$CONTAINER_USER:$CONTAINER_PASSWORD" | chpasswd && \
     usermod -aG sudo "$CONTAINER_USER" && \
     echo "$CONTAINER_USER ALL=(ALL) NOPASSWD:ALL" > /etc/sudoers.d/$CONTAINER_USER && \
-    mkdir -p /opt/ibkr/tws && \
-    chown $CONTAINER_USER:$CONTAINER_USER /opt/ibkr/tws
+    chmod 0440 /etc/sudoers.d/$CONTAINER_USER && \
+# ---------------------------------------------------------------------------
+# PostgreSQL 18 + TimescaleDB
+# ---------------------------------------------------------------------------
+RUN install -d -m 0755 /etc/apt/keyrings && \
+    curl -fsSL https://www.postgresql.org/media/keys/ACCC4CF8.asc | gpg --dearmor -o /etc/apt/keyrings/postgresql.gpg && \
+    echo "deb [signed-by=/etc/apt/keyrings/postgresql.gpg] http://apt.postgresql.org/pub/repos/apt noble-pgdg main" > /etc/apt/sources.list.d/pgdg.list && \
+    curl -fsSL https://packagecloud.io/timescale/timescaledb/gpgkey | gpg --dearmor -o /etc/apt/keyrings/timescaledb.gpg && \
+    echo "deb [signed-by=/etc/apt/keyrings/timescaledb.gpg] https://packagecloud.io/timescale/timescaledb/ubuntu noble main" > /etc/apt/sources.list.d/timescaledb.list && \
+    apt-get update && apt-get install -y --no-install-recommends \
+        postgresql-18 \
+        postgresql-client-18 \
+        timescaledb-2-postgresql-18 \
+    && rm -rf /var/lib/apt/lists/*
 
 ENV NX_USER=${CONTAINER_USER}
 ENV CONTAINER_USER=${CONTAINER_USER}
@@ -124,39 +144,22 @@ USER $CONTAINER_USER
 WORKDIR /home/$CONTAINER_USER
 
 # ---------------------------------------------------------------------------
-# IBKR TWS (Trader Workstation)
-# ---------------------------------------------------------------------------
-ARG TWS_VERSION=latest
-RUN wget -q "https://download2.interactivebrokers.com/installers/tws/${TWS_VERSION}/tws-${TWS_VERSION}-linux-x64.sh" \
-        -O /tmp/tws-installer.sh && \
-    chmod +x /tmp/tws-installer.sh && \
-    /tmp/tws-installer.sh -q -dir /opt/ibkr/tws && \
-    rm /tmp/tws-installer.sh
-
-# ---------------------------------------------------------------------------
 # Git config
 # ---------------------------------------------------------------------------
-ARG GIT_USER_NAME
-ARG GIT_USER_EMAIL
-
 RUN if [ -n "$GIT_USER_NAME" ]; then \
         git config --global user.name "$GIT_USER_NAME"; \
     fi && \
     if [ -n "$GIT_USER_EMAIL" ]; then \
         git config --global user.email "$GIT_USER_EMAIL"; \
-    fi && \
-    gh auth setup-git --hostname github.com
+    fi
 
 # ---------------------------------------------------------------------------
 # Runtime
 # ---------------------------------------------------------------------------
-USER root
-COPY tws.desktop /usr/share/applications/tws.desktop
-RUN mkdir -p /home/$CONTAINER_USER/Desktop && \
-    cp /usr/share/applications/tws.desktop /home/$CONTAINER_USER/Desktop/tws.desktop && \
-    chown $CONTAINER_USER:$CONTAINER_USER /home/$CONTAINER_USER/Desktop/tws.desktop
+COPY setup.sh /home/$CONTAINER_USER/setup.sh
+RUN chmod +x /home/$CONTAINER_USER/setup.sh && \
+    chown $CONTAINER_USER:$CONTAINER_USER /home/$CONTAINER_USER/setup.sh
 
-COPY entrypoint.sh /entrypoint.sh
-RUN chmod +x /entrypoint.sh
 EXPOSE 4000
-ENTRYPOINT ["/entrypoint.sh"]
+USER $CONTAINER_USER
+CMD ["sleep", "infinity"]
