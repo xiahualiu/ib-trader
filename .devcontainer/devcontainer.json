@@ -28,14 +28,8 @@
                 "anthropic.claude-code"
             ],
             "settings": {
-                "clangd.path": "/usr/bin/clangd",
-                "clangd.onConfigChanged": "restart",
                 "cmake.generator": "Ninja",
-                "cmake.buildDirectory": "${workspaceFolder}/build",
-                "python.defaultInterpreterPath": "/usr/bin/python3",
-                "[cpp]": {
-                    "editor.defaultFormatter": "llvm-vs-code-extensions.vscode-clangd"
-                }
+                "cmake.buildDirectory": "${workspaceFolder}/build"
             }
         }
     },
