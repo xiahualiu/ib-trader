@@ -162,4 +162,4 @@ RUN chmod +x /home/$CONTAINER_USER/setup.sh && \
 
 EXPOSE 4000
 USER $CONTAINER_USER
-CMD ["sleep", "infinity"]
+CMD ["/bin/bash"]

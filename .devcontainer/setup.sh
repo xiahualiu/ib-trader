@@ -48,6 +48,3 @@ else
     sudo /usr/NX/bin/nxserver --startup
 fi
 echo "NoMachine started"
-
-echo "Setup complete."
-exec sleep infinity
