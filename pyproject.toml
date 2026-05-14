@@ -14,7 +14,6 @@ test = ["pytest"]
 
 [tool.scikit-build]
 cmake.args = ["-DBUILD_TESTS=OFF"]
-wheel.install = ["python/ibalgotrade"]
 
 [tool.pytest.ini_options]
 testpaths = ["tests/python"]
