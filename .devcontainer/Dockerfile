@@ -111,7 +111,7 @@ RUN userdel -r ubuntu 2>/dev/null || true && \
     echo "$CONTAINER_USER:$CONTAINER_PASSWORD" | chpasswd && \
     usermod -aG sudo "$CONTAINER_USER" && \
     echo "$CONTAINER_USER ALL=(ALL) NOPASSWD:ALL" > /etc/sudoers.d/$CONTAINER_USER && \
-    chmod 0440 /etc/sudoers.d/$CONTAINER_USER && \
+    chmod 0440 /etc/sudoers.d/$CONTAINER_USER
 # ---------------------------------------------------------------------------
 # PostgreSQL 18 + TimescaleDB
 # ---------------------------------------------------------------------------
@@ -127,7 +127,6 @@ RUN install -d -m 0755 /etc/apt/keyrings && \
     && rm -rf /var/lib/apt/lists/*
 
 ENV NX_USER=${CONTAINER_USER}
-ENV CONTAINER_USER=${CONTAINER_USER}
 
 # Pre-configure NoMachine for XFCE
 RUN sed -i 's|^#\?DefaultDesktopCommand .*|DefaultDesktopCommand "/usr/bin/startxfce4"|' /usr/NX/etc/node.cfg || \
@@ -139,6 +138,13 @@ RUN sed -i 's|^#\?DefaultDesktopCommand .*|DefaultDesktopCommand "/usr/bin/start
     sed -i 's|^#\?DisplayOwner .*|DisplayOwner "'"$NX_USER"'"|' /usr/NX/etc/server.cfg || \
         echo 'DisplayOwner "'"$NX_USER"'"' >> /usr/NX/etc/server.cfg && \
     mkdir -p /run/dbus /tmp/.X11-unix
+
+# ---------------------------------------------------------------------------
+# Runtime
+# ---------------------------------------------------------------------------
+COPY setup.sh /home/$CONTAINER_USER/setup.sh
+RUN chmod +x /home/$CONTAINER_USER/setup.sh && \
+    chown $CONTAINER_USER:$CONTAINER_USER /home/$CONTAINER_USER/setup.sh
 
 USER $CONTAINER_USER
 WORKDIR /home/$CONTAINER_USER
@@ -153,13 +159,5 @@ RUN if [ -n "$GIT_USER_NAME" ]; then \
         git config --global user.email "$GIT_USER_EMAIL"; \
     fi
 
-# ---------------------------------------------------------------------------
-# Runtime
-# ---------------------------------------------------------------------------
-COPY setup.sh /home/$CONTAINER_USER/setup.sh
-RUN chmod +x /home/$CONTAINER_USER/setup.sh && \
-    chown $CONTAINER_USER:$CONTAINER_USER /home/$CONTAINER_USER/setup.sh
-
 EXPOSE 4000
-USER $CONTAINER_USER
 CMD ["/bin/bash"]
