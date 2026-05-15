@@ -20,6 +20,7 @@ ENV LC_ALL=en_US.UTF-8
 # Base desktop + system
 # ---------------------------------------------------------------------------
 RUN apt-get update && apt-get install -y --no-install-recommends \
+    ansible-core \
     ca-certificates \
     curl \
     dbus \
@@ -126,6 +127,7 @@ RUN install -d -m 0755 /etc/apt/keyrings && \
         timescaledb-2-postgresql-18 \
     && rm -rf /var/lib/apt/lists/*
 
+ENV PATH="/usr/lib/postgresql/18/bin:${PATH}"
 ENV NX_USER=${CONTAINER_USER}
 
 # Pre-configure NoMachine for XFCE
@@ -142,9 +144,8 @@ RUN sed -i 's|^#\?DefaultDesktopCommand .*|DefaultDesktopCommand "/usr/bin/start
 # ---------------------------------------------------------------------------
 # Runtime
 # ---------------------------------------------------------------------------
-COPY setup.sh /home/$CONTAINER_USER/setup.sh
-RUN chmod +x /home/$CONTAINER_USER/setup.sh && \
-    chown $CONTAINER_USER:$CONTAINER_USER /home/$CONTAINER_USER/setup.sh
+COPY ansible/ /opt/ansible/
+RUN chown -R $CONTAINER_USER:$CONTAINER_USER /opt/ansible/
 
 USER $CONTAINER_USER
 WORKDIR /home/$CONTAINER_USER

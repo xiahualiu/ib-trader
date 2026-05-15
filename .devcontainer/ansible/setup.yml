@@ -1,0 +1,117 @@
+---
+- name: Dev container initialization
+  hosts: localhost
+  connection: local
+  gather_facts: true
+
+  vars:
+    pgdata: /home/ibuser/pgdata
+    pgsocket: /home/ibuser/pgsocket
+    tws_dir: /home/ibuser/tws
+
+  tasks:
+    # ── 1. DBus system daemon ──────────────────────────────────────────
+    - name: Start DBus system daemon if not running
+      ansible.builtin.command:
+        cmd: dbus-daemon --system --fork
+        creates: /run/dbus/system_bus_socket
+      become: true
+
+    # ── 2. PulseAudio ──────────────────────────────────────────────────
+    - name: Check if PulseAudio is already running
+      ansible.builtin.command:
+        cmd: pgrep -u {{ ansible_user_id }} pulseaudio
+      register: pulse_check
+      changed_when: false
+      failed_when: false
+
+    - name: Start PulseAudio
+      ansible.builtin.shell:
+        cmd: nohup pulseaudio --daemonize=no --exit-idle-time=-1 > /dev/null 2>&1 &
+      when: pulse_check.rc != 0
+
+    # ── 3. Git credential helper ───────────────────────────────────────
+    - name: Configure Git credential helper via gh
+      ansible.builtin.command:
+        cmd: gh auth setup-git --hostname github.com
+      changed_when: false
+      ignore_errors: true
+
+    # ── 4. PostgreSQL ──────────────────────────────────────────────────
+    - name: Ensure PGDATA directory exists
+      ansible.builtin.file:
+        path: "{{ pgdata }}"
+        state: directory
+        mode: "0700"
+
+    - name: Ensure PGSOCKET directory exists
+      ansible.builtin.file:
+        path: "{{ pgsocket }}"
+        state: directory
+        mode: "0755"
+
+    - name: Initialize PostgreSQL data directory
+      ansible.builtin.command:
+        cmd: initdb -D {{ pgdata }}
+        creates: "{{ pgdata }}/PG_VERSION"
+
+    - name: Configure unix_socket_directories in postgresql.conf
+      ansible.builtin.lineinfile:
+        path: "{{ pgdata }}/postgresql.conf"
+        regexp: ^unix_socket_directories\s*=
+        line: "unix_socket_directories = '{{ pgsocket }}'"
+
+    - name: Check if PostgreSQL is already running
+      ansible.builtin.command:
+        cmd: pg_isready -q
+      register: pg_status
+      changed_when: false
+      failed_when: false
+
+    - name: Start PostgreSQL
+      ansible.builtin.command:
+        cmd: pg_ctl -D {{ pgdata }} -l {{ pgdata }}/logfile -w start
+      when: pg_status.rc != 0
+
+    # ── 5. IBKR TWS ───────────────────────────────────────────────────
+    - name: Check if TWS directory exists
+      ansible.builtin.stat:
+        path: "{{ tws_dir }}"
+      register: tws_stat
+
+    - name: List TWS directory contents (if exists)
+      ansible.builtin.find:
+        paths: "{{ tws_dir }}"
+        file_type: any
+      register: tws_contents
+      when: tws_stat.stat.exists
+
+    - name: Download TWS installer
+      ansible.builtin.get_url:
+        url: https://download2.interactivebrokers.com/installers/tws/latest/tws-latest-linux-x64.sh
+        dest: /tmp/tws-installer.sh
+        mode: "0755"
+      when: not tws_stat.stat.exists or tws_contents.matched == 0
+
+    - name: Install TWS
+      ansible.builtin.command:
+        cmd: /tmp/tws-installer.sh -q -dir {{ tws_dir }}
+      when: not tws_stat.stat.exists or tws_contents.matched == 0
+
+    - name: Clean up TWS installer
+      ansible.builtin.file:
+        path: /tmp/tws-installer.sh
+        state: absent
+      when: not tws_stat.stat.exists or tws_contents.matched == 0
+
+    # ── 6. NoMachine ───────────────────────────────────────────────────
+    - name: Start NoMachine server
+      ansible.builtin.command:
+        cmd: /usr/NX/bin/nxserver --startup
+      register: nx_result
+      become: true
+      failed_when: >
+        nx_result.rc != 0
+        and 'already running' not in nx_result.stdout
+        and 'already running' not in nx_result.stderr
+      changed_when: "'already running' not in nx_result.stdout"
