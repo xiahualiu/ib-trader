@@ -10,6 +10,14 @@ The dev container includes a NoMachine remote desktop server with Xfce4 and NVID
 
 ## Starting the server
 
+The Ansible playbook starts the NX server automatically:
+
+```bash
+ansible-playbook /opt/ansible/setup.yml
+```
+
+To start manually:
+
 ```bash
 sudo /etc/NX/nxserver --startup
 ```
@@ -32,16 +40,36 @@ vulkaninfo --summary
 
 ## Customization
 
-All tunables are in `.env` — see `.env.example` for the full list.
+Configuration lives in `.devcontainer/devcontainer.json`.
+
+### Image build args
 
 | Variable | Default | Notes |
 |---|---|---|
-| `HOST_NX_PORT` | 4000 | Port on the host |
 | `CONTAINER_USER` | ibuser | Login username |
 | `CONTAINER_PASSWORD` | ibpass | Login password |
+| `CONTAINER_UID` | 1000 | User ID in container |
+| `CONTAINER_GID` | 1000 | Group ID in container |
 | `NOMACHINE_VERSION` | 9.5.7 | NoMachine release |
-| `NVIDIA_VISIBLE_DEVICES` | all | GPU selector |
-| `SHM_SIZE` | 16gb | `/dev/shm` for GUI apps |
+| `NOMACHINE_REV` | 2 | NoMachine revision |
+
+### Runtime flags
+
+GPU, shared memory, and port mapping are set via `runArgs`:
+
+```json
+"--gpus", "all",
+"--shm-size=16gb",
+"--publish", "0.0.0.0:4000:4000"
+```
+
+### Secrets (`.env`)
+
+| Variable | Notes |
+|---|---|
+| `GH_TOKEN` | GitHub personal access token |
+| `ANTHROPIC_AUTH_TOKEN` | Anthropic API key |
+| `DATABASE_URL` | PostgreSQL connection string |
 
 ## Adding tools
 

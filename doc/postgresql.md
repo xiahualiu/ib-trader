@@ -1,6 +1,6 @@
 # PostgreSQL
 
-PostgreSQL 18 + TimescaleDB are installed. `~/setup.sh` handles initialization and startup automatically.
+PostgreSQL 18 + TimescaleDB are installed. The Ansible playbook handles initialization and startup automatically.
 
 ## Paths
 
