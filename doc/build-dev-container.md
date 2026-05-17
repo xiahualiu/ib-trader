@@ -4,29 +4,29 @@ How the `ib-algo-trade` dev container is built, configured, and customized.
 
 ## Overview
 
-The container provides a full desktop development environment with:
+The container provides a C++ development environment with:
 
-- **Xfce** desktop via **NoMachine** remote access
 - **Clang 20** toolchain (clang, clangd, lld, lldb, clang-tidy, clang-format)
 - **CMake + Ninja + ccache** build system
 - **Python 3.12** with venv and common packages
-- **PostgreSQL 18 + TimescaleDB** for time-series market data
-- **IBKR TWS** for broker connectivity
 
 Everything is defined in `.devcontainer/`:
 
 | File | Purpose |
 |---|---|
-| `Dockerfile` | Image layers — OS, toolchain, user, services |
+| `Dockerfile` | Image layers — OS, toolchain, user |
 | `devcontainer.json` | VS Code integration — mounts, ports, extensions |
-| `ansible/setup.yml` | Ansible playbook for runtime services (DBus, PulseAudio, NoMachine, PG, TWS) |
 
+External services must be set up separately and their ports/sockets must be accessible from within the container by the `ubuntu` user:
+
+- [PostgreSQL](postgresql.md) — TimescaleDB extension and socket path requirements
+- [TWS / IB Gateway](tws.md) — API port configuration
 
 ## Prerequisites
 
 ### Host
 
-- **Docker** with GPU support ([`nvidia-container-toolkit`](https://docs.nvidia.com/datacenter/cloud-native/container-toolkit/latest/install-guide.html))
+- **Docker** — install from the [official Docker repository](https://docs.docker.com/engine/install/ubuntu/), not the Ubuntu apt package
 - **VS Code** with the **Dev Containers** extension (`ms-vscode-remote.remote-containers`)
 - A directory on the host to persist the user's home data (SSD/NVMe recommended for PG data)
 
@@ -34,7 +34,7 @@ Everything is defined in `.devcontainer/`:
 
 ### Step 1: Prepare host directory
 
-The container bind-mounts a host directory as `/home/ibuser`. Create it with ownership matching the container UID/GID (1000:1000 by default):
+The container bind-mounts a host directory as `/home/ubuntu`. Create it with ownership matching the default ubuntu user (1000:1000):
 
 ```bash
 sudo mkdir -p /mnt/ib-home
@@ -60,65 +60,28 @@ Fill in `GH_TOKEN` and `ANTHROPIC_AUTH_TOKEN`.
 Inside the container:
 
 ```bash
-cd /home/ibuser
+cd /home/ubuntu
 gh repo clone xiahualiu/ib-trader workspace
 ```
 
-### Step 5: Run setup
+### Step 5: Build the project
 
 ```bash
-ansible-playbook /opt/ansible/setup.yml
-```
-
-Initializes and starts DBus, PulseAudio, PostgreSQL (+TimescaleDB), NoMachine NX server, and IBKR TWS (auto-downloads on first run). The playbook is idempotent — safe to re-run at any time.
-
-### Step 6: Build the project
-
-```bash
-cd /home/ibuser/workspace
+cd /home/ubuntu/workspace
 cmake -B build -G Ninja -DCMAKE_BUILD_TYPE=Release
 cmake --build build
 ```
 
-### Step 7: Create Python venv
+### Step 6: Create Python venv
 
 ```bash
-cd /home/ibuser/workspace
+cd /home/ubuntu/workspace
 python3 -m venv .venv
 source .venv/bin/activate
 pip install -r requirements.txt
 ```
 
-## Connecting via NoMachine
-
-After the playbook has started the NX server:
-
-1. Install the [NoMachine client](https://www.nomachine.com/download) on your local machine
-2. Connect to `<container-host-ip>:4000`
-3. Login with `CONTAINER_USER` / `CONTAINER_PASSWORD` (default: `ibuser` / `ibpass`)
-4. You should see the Xfce desktop
-
-See [Remote desktop](remote-desktop.md) for more details.
-
-## Start TWS
-
-TWS is installed at `/home/ibuser/tws` by the playbook on first run. To launch:
-
-```bash
-/home/ibuser/tws/tws &
-```
-
-The IB Gateway / TWS must be running with API access enabled for the trading engine to connect.
-
 ## Customization
-
-### Changing user credentials
-
-Edit `CONTAINER_USER`, `CONTAINER_PASSWORD`, `CONTAINER_UID`, `CONTAINER_GID` in the `build.args` of `devcontainer.json`. Make sure the host directory ownership matches the new UID/GID.
-
-### Changing NoMachine version
-
-Update `NOMACHINE_VERSION` and `NOMACHINE_REV` in `build.args`. Check [NoMachine downloads](https://www.nomachine.com/download) for available versions.
 
 ### Adding APT packages
 
@@ -130,4 +93,4 @@ Create a `requirements.txt` and add a `COPY` + `RUN pip install` layer in the Do
 
 ### Changing the home mount path
 
-Update the `source` field in `devcontainer.json` → `mounts`. The target must remain `/home/ibuser` (matching `workspaceFolder` and `remoteUser`).
+Update the `source` field in `devcontainer.json` → `mounts`. The target must remain `/home/ubuntu` (matching `workspaceFolder` and `remoteUser`).
